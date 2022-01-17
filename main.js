@@ -29,7 +29,7 @@ global.timestamp = {
   start: new Date
 }
 // global.LOGGER = logs()
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 8000
 global.opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse())
 
 global.prefix = new RegExp('^[' + (opts['prefix'] || '‎xzXZ/i!#$%+£¢€¥^°=¶∆×÷π√✓©®:;?&.\\-').replace(/[|\\{}()[\]^$+*?.\-\^]/g, '\\$&') + ']')
