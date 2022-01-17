@@ -29,35 +29,29 @@ global.timestamp = {
   start: new Date
 }
 // global.LOGGER = logs()
-const PORT = process.env.PORT || 8000
+const PORT = process.env.PORT || 3000
 global.opts = new Object(yargs(process.argv.slice(2)).exitProcess(false).parse())
 
 global.prefix = new RegExp('^[' + (opts['prefix'] || '‎xzXZ/i!#$%+£¢€¥^°=¶∆×÷π√✓©®:;?&.\\-').replace(/[|\\{}()[\]^$+*?.\-\^]/g, '\\$&') + ']')
 
 global.db = new Low(
   /https?:\/\//.test(opts['db'] || '') ?
-    new cloudDBAdapter(opts['db']) :
-    new JSONFile(`${opts._[0] ? opts._[0] + '_' : ''}database.json`)
+  new cloudDBAdapter(opts['db']) :
+  new JSONFile(`${opts._[0] ? opts._[0] + '_' : ''}database.json`)
 )
 global.DATABASE = global.db // Backwards Compatibility
 
 global.conn = new WAConnection()
-conn.version = [2, 2143, 3]
-let authFile = opts['session'] ? opts['session'] + '.json' : `session.data.json`
+let authFile = `${opts._[0] || 'session'}.data.json`
 if (fs.existsSync(authFile)) conn.loadAuthInfo(authFile)
 if (opts['trace']) conn.logger.level = 'trace'
 if (opts['debug']) conn.logger.level = 'debug'
-if (opts['big-qr']) conn.on('qr', qr => generate(qr, { small: false }))
+if (opts['big-qr'] || opts['server']) conn.on('qr', qr => generate(qr, { small: false }))
 if (!opts['test']) setInterval(async () => {
   await global.db.write()
 }, 60 * 1000) // Save every minute
 if (opts['server']) require('./server')(global.conn, PORT)
 
-conn.user = {
-  jid: '',
-  name: '',
-  phone: {}
-}
 if (opts['test']) {
   conn.user = {
     jid: '2219191@s.whatsapp.net',
@@ -103,28 +97,23 @@ if (opts['test']) {
     process.send(line.trim())
   })
   conn.connect().then(async () => {
-    if (global.db.data == null) await loadDatabase()
+    await global.db.read()
+    global.db.data = {
+      users: {},
+      chats: {},
+      stats: {},
+      msgs: {},
+      sticker: {},
+      settings: {},
+      ...(global.db.data || {})
+    }
+    global.db.chain = _.chain(global.db.data)
     fs.writeFileSync(authFile, JSON.stringify(conn.base64EncodedAuthInfo(), null, '\t'))
     global.timestamp.connect = new Date
   })
 }
 process.on('uncaughtException', console.error)
 // let strQuot = /(["'])(?:(?=(\\?))\2.)*?\1/
-
-loadDatabase()
-async function loadDatabase() {
-  await global.db.read()
-  global.db.data = {
-    users: {},
-    chats: {},
-    stats: {},
-    msgs: {},
-    sticker: {},
-    settings: {},
-    ...(global.db.data || {})
-  }
-  global.db.chain = _.chain(global.db.data)
-}
 
 let isInit = true
 global.reloadHandler = function () {
